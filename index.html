@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>人狼GM支援ツール（最新版 完全統合版）</title>
+<style>
+body { font-family:"Yu Gothic UI",sans-serif; text-align:center; padding:20px; transition: background 0.5s,color 0.5s;}
+h1{margin-bottom:10px;}
+#timer{font-size:48px;margin:10px;}
+button{margin:5px;padding:10px 20px;font-size:16px;border:none;border-radius:8px;background:#4CAF50;color:white;cursor:pointer;}
+button:hover{background:#45a049;}
+textarea{width:80%;height:100px;margin-top:10px;padding:10px;font-size:15px;border-radius:6px;border:1px solid #ccc;}
+select,input{padding:6px;margin:3px;font-size:16px;border-radius:6px;border:1px solid #ccc;}
+#player-settings,#timer-settings,#logContainer,#actionContainer{background:#fff;border-radius:10px;padding:10px;margin:20px auto;width:70%;box-shadow:0 0 5px rgba(0,0,0,0.1);text-align:left;}
+#modal,#seerModal,#mediumModal,#actionModal,#helpModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;justify-content:center;align-items:center;z-index:1000;}
+#modal{background:rgba(0,0,0,0.8);}
+#modalContent,#seerContent,#mediumContent,#actionContent,#helpContent{background:#222;color:#fff;padding:20px;border-radius:10px;width:70%;text-align:center;box-shadow:0 0 20px rgba(0,0,0,0.5);}
+#seerResult,#mediumResult{font-size:36px;font-weight:bold;margin-top:20px;}
+</style>
+</head>
+<body>
+
+<h1>人狼GM支援ツール</h1>
+
+<button onclick="showHelpModal()">❓ 使い方</button>
+<h2 id="turnLabel">現在のターン: 昼</h2>
+<div id="timer">10:00</div>
+<button onclick="startTimer()">▶ タイマー開始</button>
+<button onclick="nextTurn()">🌙 次のターンへ</button>
+<button onclick="showNightModal()">🌙 夜の原稿</button>
+<button onclick="showSeerModal()">🔮 占い師専用画面</button>
+<button onclick="showMediumModal()">💀 霊媒師専用画面</button>
+<button onclick="showActionModal()">📝 夜の行動一覧</button>
+
+<hr>
+
+<div id="player-settings">
+<h3>プレイヤー設定</h3>
+<label>人狼: <input type="text" id="player_wolf" placeholder="名前"></label><br>
+<label>占い師: <input type="text" id="player_seer" placeholder="名前"></label><br>
+<label>狂人: <input type="text" id="player_mad" placeholder="名前"></label><br>
+<label>霊媒師: <input type="text" id="player_medium" placeholder="名前"></label><br>
+<label>狩人: <input type="text" id="player_hunter" placeholder="名前"></label><br>
+<label>恋人: <input type="text" id="player_lover" placeholder="名前"></label><br>
+<button onclick="updatePlayerNames()">💾 保存</button>
+</div>
+
+<div id="timer-settings">
+<h3>タイマー設定（分）</h3>
+<label>昼: <input type="number" id="day_time" min="1" value="10"></label><br>
+<label>夜: <input type="number" id="night_time" min="1" value="3"></label><br>
+<button onclick="saveTimerSettings()">💾 保存</button>
+</div>
+
+<hr>
+
+<h3>アクション選択</h3>
+<select id="actionSelect" onchange="updateScript()">
+  <option value="default">全体原稿</option>
+  <option value="占い">占い師用（夜）</option>
+  <option value="襲撃">人狼用（夜）</option>
+  <option value="霊媒">霊媒師用（夜）</option>
+  <option value="狩人">狩人用（夜）</option>
+</select>
+
+<h3>原稿</h3>
+<textarea id="scriptArea"></textarea><br>
+<button onclick="saveScript()">💾 保存</button>
+
+<div id="logContainer">
+<h3>夜のログ</h3>
+<div id="logArea" style="height:150px; overflow-y:auto; background:#f5f5f5; padding:10px; border-radius:6px;"></div>
+<button onclick="exportLogs()">📄 ログを保存</button>
+</div>
+
+<!-- モーダル -->
+<div id="modal"><div id="modalContent"><h2>夜の原稿</h2><p id="modalScript"></p><button onclick="closeModal()">閉じる</button></div></div>
+
+<div id="seerModal"><div id="seerContent">
+<h2>占い師専用</h2>
+<label>占う人: <select id="seerTarget"></select></label><br><br>
+<button onclick="showSeerResult('市民陣営')">市民陣営</button>
+<button onclick="showSeerResult('人狼陣営')">人狼陣営</button>
+<p id="seerResult"></p>
+<button onclick="closeSeerModal()">閉じる</button>
+</div></div>
+
+<div id="mediumModal"><div id="mediumContent">
+<h2>霊媒師専用</h2>
+<label>処刑者: <select id="mediumTarget"></select></label><br><br>
+<button onclick="showMediumResult('市民陣営')">市民陣営</button>
+<button onclick="showMediumResult('人狼陣営')">人狼陣営</button>
+<p id="mediumResult"></p>
+<button onclick="closeMediumModal()">閉じる</button>
+</div></div>
+
+<div id="actionModal"><div id="actionContent">
+<h2>夜の行動一覧</h2>
+<div id="actionList" style="text-align:left; max-height:300px; overflow-y:auto;"></div>
+<button onclick="closeActionModal()">閉じる</button>
+</div></div>
+
+<div id="helpModal"><div id="helpContent">
+<h2>使い方</h2>
+<ul style="text-align:left;">
+  <li>役職の名前を登録して保存します。</li>
+  <li>昼夜の時間設定を変更できます。</li>
+  <li>原稿を編集し、読み上げ可能です。</li>
+  <li>占い師・霊媒師専用画面はGMが操作。</li>
+  <li>ログをTXTで保存、テンプレも複数保存可。</li>
+</ul>
+<button onclick="closeHelpModal()">閉じる</button>
+</div></div>
+
+<script>
+let turns={昼:600,夜:180};
+let players={人狼:'',占い師:'',狂人:'',霊媒師:'',狩人:'',恋人:''};
+let scripts={
+  昼:{default:'皆さんおはようございます。昼が始まりました。'},
+  夜:{
+    default:'皆さん夜が訪れました。伏せてください。',
+    占い:'占い師さん占い師さんおはようございます。占いたい人を1人選んでください。',
+    襲撃:'人狼さん人狼さんおはようございます。殺したい人を1人選んでください。',
+    霊媒:'霊媒師さん霊媒師さんおはようございます。お昼のターンにつられた方の正体を教えます。',
+    狩人:'狩人さん狩人さんおはようございます。守りたい人を1人選んでください。同じ人を連続で選ぶことはできません。'
+  }
+};
+
+let currentTurn='昼', remainingTime=turns[currentTurn], timerInterval=null;
+let nightLogs=[], nightActions={};
+
+function formatTime(sec){let m=Math.floor(sec/60),s=sec%60;return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;}
+function startTimer(){if(timerInterval)return;timerInterval=setInterval(()=>{if(remainingTime<=0){clearInterval(timerInterval);timerInterval=null;alert(`${currentTurn}の時間が終了しました！`);}else{remainingTime--;document.getElementById('timer').textContent=formatTime(remainingTime);}},1000);}
+function nextTurn(){if(timerInterval){clearInterval(timerInterval);timerInterval=null;}currentTurn=(currentTurn==='昼')?'夜':'昼';remainingTime=turns[currentTurn];document.getElementById('turnLabel').textContent=`現在のターン: ${currentTurn}`;document.getElementById('timer').textContent=formatTime(remainingTime);document.body.style.backgroundColor=(currentTurn==='昼')?'#fff':'#111';document.body.style.color=(currentTurn==='昼')?'#000':'#eee';updateScript();}
+
+function updatePlayerNames(){for(let k in players){players[k]=document.getElementById(`player_${roleToId(k)}`).value||k;}updateScript();alert('保存しました！');}
+function roleToId(r){return {'人狼':'wolf','占い師':'seer','狂人':'mad','霊媒師':'medium','狩人':'hunter','恋人':'lover'}[r];}
+
+function updateScript(){let a=document.getElementById('actionSelect').value;if(currentTurn==='昼')a='default';document.getElementById('scriptArea').value=scripts[currentTurn][a];}
+function saveScript(){let a=document.getElementById('actionSelect').value;if(currentTurn==='昼')a='default';scripts[currentTurn][a]=document.getElementById('scriptArea').value;alert('原稿を保存しました！');}
+function saveTimerSettings(){turns['昼']=parseInt(document.getElementById('day_time').value)*60;turns['夜']=parseInt(document.getElementById('night_time').value)*60;alert('時間を保存しました！');}
+
+// モーダルなどの処理は前回版と同じ
+function showNightModal(){document.getElementById('modalScript').innerText=scripts['夜']['default'];document.getElementById('modal').style.display='flex';}
+function closeModal(){document.getElementById('modal').style.display='none';}
+
+function showSeerModal(){hideMainUI(true);const s=document.getElementById('seerTarget');s.innerHTML='';for(let p in players){if(p!=='占い師'){s.innerHTML+=`<option value="${p}">${players[p]}</option>`;}}document.getElementById('seerResult').innerText='';document.getElementById('seerModal').style.display='flex';}
+function closeSeerModal(){document.getElementById('seerModal').style.display='none';hideMainUI(false);}
+
+function showMediumModal(){hideMainUI(true);const s=document.getElementById('mediumTarget');s.innerHTML='';for(let p in players){s.innerHTML+=`<option value="${p}">${players[p]}</option>`;}document.getElementById('mediumResult').innerText='';document.getElementById('mediumModal').style.display='flex';}
+function closeMediumModal(){document.getElementById('mediumModal').style.display='none';hideMainUI(false);}
+
+function showSeerResult(f){const p=document.getElementById('seerTarget').value;document.getElementById('seerResult').innerText=`${players[p]}: ${f}`;nightLogs.push(`占い師が${players[p]}を占った → ${f}`);nightActions['占い師']=`占い師: ${players[p]} → ${f}`;updateLogDisplay();}
+function showMediumResult(f){const p=document.getElementById('mediumTarget').value;document.getElementById('mediumResult').innerText=`${players[p]}: ${f}`;nightLogs.push(`霊媒師が${players[p]}を確認 → ${f}`);nightActions['霊媒師']=`霊媒師: ${players[p]} → ${f}`;updateLogDisplay();}
+
+function showActionModal(){const d=document.getElementById('actionList');d.innerHTML=Object.values(nightActions).join('<br>')||'まだ行動がありません';document.getElementById('actionModal').style.display='flex';}
+function closeActionModal(){document.getElementById('actionModal').style.display='none';}
+function showHelpModal(){document.getElementById('helpModal').style.display='flex';}
+function closeHelpModal(){document.getElementById('helpModal').style.display='none';}
+
+function hideMainUI(h){document.getElementById('player-settings').style.display=h?'none':'block';document.getElementById('timer-settings').style.display=h?'none':'block';document.getElementById('logContainer').style.display=h?'none':'block';document.getElementById('actionSelect').style.display=h?'none':'inline-block';document.getElementById('scriptArea').style.display=h?'none':'inline-block';}
+
+function updateLogDisplay(){document.getElementById('logArea').innerHTML=nightLogs.join('<br>');}
+function exportLogs(){const logText=nightLogs.join("\n")||"まだ記録がありません。";const blob=new Blob([logText],{type:"text/plain"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;const now=new Date();const ts=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}_${now.getHours()}-${now.getMinutes()}`;a.download=`jinro_log_${ts}.txt`;a.click();URL.revokeObjectURL(url);}
+
+window.onload=function(){updateScript();document.getElementById('timer').textContent=formatTime(remainingTime);document.body.style.backgroundColor='#fff';};
+</script>
+</body>
+</html>
