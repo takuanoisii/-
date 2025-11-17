@@ -1,169 +1,839 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>人狼GM支援ツール（最新版 完全統合版）</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>人狼GM支援ツール（最終版：弟子昇格＋狩人連続防止）</title>
 <style>
-body { font-family:"Yu Gothic UI",sans-serif; text-align:center; padding:20px; transition: background 0.5s,color 0.5s;}
-h1{margin-bottom:10px;}
-#timer{font-size:48px;margin:10px;}
-button{margin:5px;padding:10px 20px;font-size:16px;border:none;border-radius:8px;background:#4CAF50;color:white;cursor:pointer;}
-button:hover{background:#45a049;}
-textarea{width:80%;height:100px;margin-top:10px;padding:10px;font-size:15px;border-radius:6px;border:1px solid #ccc;}
-select,input{padding:6px;margin:3px;font-size:16px;border-radius:6px;border:1px solid #ccc;}
-#player-settings,#timer-settings,#logContainer,#actionContainer{background:#fff;border-radius:10px;padding:10px;margin:20px auto;width:70%;box-shadow:0 0 5px rgba(0,0,0,0.1);text-align:left;}
-#modal,#seerModal,#mediumModal,#actionModal,#helpModal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;justify-content:center;align-items:center;z-index:1000;}
-#modal{background:rgba(0,0,0,0.8);}
-#modalContent,#seerContent,#mediumContent,#actionContent,#helpContent{background:#222;color:#fff;padding:20px;border-radius:10px;width:70%;text-align:center;box-shadow:0 0 20px rgba(0,0,0,0.5);}
-#seerResult,#mediumResult{font-size:36px;font-weight:bold;margin-top:20px;}
+  :root{ --bg:#fff; --text:#111; }
+  html,body{height:100%; margin:0; padding:0; font-family:"Yu Gothic UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;}
+  body{ background:var(--bg); color:var(--text); transition:background 0.4s, color 0.3s; padding:16px; text-align:center;}
+  h1{margin:6px 0 14px;}
+  .toolbar{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:8px;}
+  button{padding:8px 12px; border:none; border-radius:8px; background:#267b3f; color:#fff; cursor:pointer;}
+  button.ghost{background:transparent; border:1px solid #ddd; color:inherit;}
+  .card{background:#fff; width:92%; max-width:1100px; margin:12px auto; padding:12px; border-radius:10px; box-shadow:0 8px 20px rgba(0,0,0,0.06); text-align:left;}
+  textarea{width:100%; min-height:100px; padding:10px; font-size:14px; border-radius:8px; border:1px solid #ccc; resize:vertical;}
+  input,select{padding:6px; font-size:14px; border-radius:6px; border:1px solid #ccc;}
+  label{display:inline-flex; align-items:center; gap:6px; margin:6px;}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center;}
+  .col{flex:1; min-width:160px;}
+  .small{font-size:13px; color:#555;}
+  #timer{font-size:40px; margin:8px 0;}
+  .note{font-size:13px; color:#666; margin-top:8px;}
+  .modal{ display:none; position:fixed; inset:0; z-index:2000; align-items:center; justify-content:center; }
+  .overlay{ position:absolute; inset:0; background:rgba(0,0,0,0.6); }
+  .modalBox{ position:relative; z-index:2100; width:92%; max-width:760px; border-radius:12px; background:#111; color:#fff; padding:18px; box-shadow:0 12px 36px rgba(0,0,0,0.6); text-align:center;}
+  .modalBox.light{ background:#fff; color:#111; }
+  #roleReveal{font-size:40px; font-weight:700; margin:14px 0; opacity:0; transform:translateY(-20px); transition:all 0.45s cubic-bezier(.2,.8,.2,1);}
+  .modal-color-wrap{border-radius:10px; padding:12px; display:inline-block; min-width:260px;}
+  .color-wolf{ background: linear-gradient(180deg,#7f0f0f,#c22424); color:#fff; }
+  .color-citizen{ background: linear-gradient(180deg,#0b3b66,#2f7bd3); color:#fff; }
+  .color-seer{ background: linear-gradient(180deg,#3b66a8,#7b9ee0); color:#fff; }
+  .color-apprentice{ background: linear-gradient(180deg,#6b3ba7,#9b76d9); color:#fff; }
+  .color-medium{ background: linear-gradient(180deg,#e9e9e9,#fff); color:#111; }
+  .color-hunter{ background: linear-gradient(180deg,#0b7a3e,#2fb06a); color:#fff; }
+  .color-mad{ background: linear-gradient(180deg,#8b3a8b,#c977c9); color:#fff; }
+  .color-devotee{ background: linear-gradient(180deg,#3b0000,#6b0010); color:#fff; }
+  .color-sharer{ background: linear-gradient(180deg,#2bb7d6,#7fdaf0); color:#fff; }
+  .color-lover{ background: linear-gradient(180deg,#ff6ea7,#ff9ac1); color:#fff; }
+  table{width:100%; border-collapse:collapse;}
+  table td, table th{padding:6px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:left;}
+  .disabled-option{ color:#999; }
+  @media (max-width:800px){ .card{width:96%;} #roleReveal{font-size:30px;} }
 </style>
 </head>
 <body>
 
-<h1>人狼GM支援ツール</h1>
+<h1>人狼GM支援ツール（最終版：弟子昇格＋狩人連続防止）</h1>
 
-<button onclick="showHelpModal()">❓ 使い方</button>
-<h2 id="turnLabel">現在のターン: 昼</h2>
+<div class="toolbar">
+  <button onclick="openHelpModal()">❓ 使い方／役職説明</button>
+  <button onclick="startTimer()">▶ タイマー開始</button>
+  <button onclick="nextTurn()">🌙 次のターンへ</button>
+  <button onclick="showNightModal()">🌙 夜の原稿</button>
+  <button onclick="showSeerModal()">🔮 占い師専用</button>
+  <button onclick="showMediumModal()">💀 霊媒師専用</button>
+  <button onclick="showActionModal()">📝 夜の行動一覧</button>
+  <button onclick="showNextRole()">🎭 プレイヤーに役職を表示</button>
+  <button onclick="showNightActionModal()">🌙 夜行動入力</button>
+  <button onclick="startRoleConfirm()">🪞 役職確認フェーズ</button>
+  <button onclick="showWolfPanel()">🐺 人狼パネル</button>
+</div>
+
+<div class="small">現在のターン: <strong id="turnText">昼</strong></div>
 <div id="timer">10:00</div>
-<button onclick="startTimer()">▶ タイマー開始</button>
-<button onclick="nextTurn()">🌙 次のターンへ</button>
-<button onclick="showNightModal()">🌙 夜の原稿</button>
-<button onclick="showSeerModal()">🔮 占い師専用画面</button>
-<button onclick="showMediumModal()">💀 霊媒師専用画面</button>
-<button onclick="showActionModal()">📝 夜の行動一覧</button>
 
-<hr>
-
-<div id="player-settings">
-<h3>プレイヤー設定</h3>
-<label>人狼: <input type="text" id="player_wolf" placeholder="名前"></label><br>
-<label>占い師: <input type="text" id="player_seer" placeholder="名前"></label><br>
-<label>狂人: <input type="text" id="player_mad" placeholder="名前"></label><br>
-<label>霊媒師: <input type="text" id="player_medium" placeholder="名前"></label><br>
-<label>狩人: <input type="text" id="player_hunter" placeholder="名前"></label><br>
-<label>恋人: <input type="text" id="player_lover" placeholder="名前"></label><br>
-<button onclick="updatePlayerNames()">💾 保存</button>
+<div class="card" id="player-settings">
+  <h3>プレイヤー設定（上から順に入力 — 表示順を保持）</h3>
+  <textarea id="playerList" placeholder="プレイヤー名を上から順に入力（改行で区切る）"></textarea>
+  <div class="row" style="margin-top:10px;">
+    <label class="col">人狼: <input type="number" id="wolfCount" value="1" min="0" style="width:80px"></label>
+    <label class="col">狂信者: <input type="number" id="numDevotee" value="0" min="0" style="width:80px"></label>
+    <label class="col">狂人: <input type="number" id="numMad" value="0" min="0" style="width:80px"></label>
+    <label class="col">占い師: <input type="number" id="numSeer" value="1" min="0" style="width:80px"></label>
+    <label class="col">占い師の弟子: <input type="number" id="numApprentice" value="0" min="0" style="width:80px"></label>
+    <label class="col">霊媒師: <input type="number" id="numMedium" value="1" min="0" style="width:80px"></label>
+    <label class="col">狩人: <input type="number" id="numHunter" value="1" min="0" style="width:80px"></label>
+    <label class="col">共有者: <input type="number" id="numSharer" value="0" min="0" style="width:80px"></label>
+    <label class="col">恋人あり: <input type="checkbox" id="hasLover" checked></label>
+  </div>
+  <div style="margin-top:10px;">
+    <button onclick="assignRoles()">🎲 役職をランダム割り当て（順序固定）</button>
+    <button onclick="saveSettings()">💾 設定保存</button>
+    <button onclick="loadSettings()">📂 設定読み込み</button>
+  </div>
+  <div id="assignedRoles" class="note"></div>
 </div>
 
-<div id="timer-settings">
-<h3>タイマー設定（分）</h3>
-<label>昼: <input type="number" id="day_time" min="1" value="10"></label><br>
-<label>夜: <input type="number" id="night_time" min="1" value="3"></label><br>
-<button onclick="saveTimerSettings()">💾 保存</button>
+<div class="card" id="timer-settings">
+  <h3>タイマー設定（分）</h3>
+  <label>昼: <input type="number" id="day_time" value="10" min="1" style="width:80px"></label>
+  <label>夜: <input type="number" id="night_time" value="3" min="1" style="width:80px"></label>
+  <div style="margin-top:8px;"><button onclick="saveTimerSettings()">💾 保存</button></div>
 </div>
 
-<hr>
-
-<h3>アクション選択</h3>
-<select id="actionSelect" onchange="updateScript()">
-  <option value="default">全体原稿</option>
-  <option value="占い">占い師用（夜）</option>
-  <option value="襲撃">人狼用（夜）</option>
-  <option value="霊媒">霊媒師用（夜）</option>
-  <option value="狩人">狩人用（夜）</option>
-</select>
-
-<h3>原稿</h3>
-<textarea id="scriptArea"></textarea><br>
-<button onclick="saveScript()">💾 保存</button>
-
-<div id="logContainer">
-<h3>夜のログ</h3>
-<div id="logArea" style="height:150px; overflow-y:auto; background:#f5f5f5; padding:10px; border-radius:6px;"></div>
-<button onclick="exportLogs()">📄 ログを保存</button>
+<div class="card">
+  <h3>原稿（自動保存）</h3>
+  <div class="row">
+    <select id="actionSelect" onchange="updateScript()">
+      <option value="default">全体原稿（昼）</option>
+      <option value="占い">占い師（夜）</option>
+      <option value="襲撃">人狼（夜）</option>
+      <option value="霊媒">霊媒師（夜）</option>
+      <option value="狩人">狩人（夜）</option>
+    </select>
+    <div class="small">選択後に編集 → 自動保存されます</div>
+  </div>
+  <textarea id="scriptArea"></textarea>
+  <div style="margin-top:8px;">
+    <button onclick="saveScript()">💾 手動保存</button>
+    <button onclick="saveTemplate()">💾 テンプレ保存</button>
+    <button onclick="loadTemplate()">📂 テンプレ読込</button>
+  </div>
 </div>
 
-<!-- モーダル -->
-<div id="modal"><div id="modalContent"><h2>夜の原稿</h2><p id="modalScript"></p><button onclick="closeModal()">閉じる</button></div></div>
+<div class="card" id="logContainer">
+  <h3>夜ログ（自動集計）</h3>
+  <div id="logArea" style="min-height:120px; max-height:200px; overflow:auto; background:#f7f7f7; padding:10px; border-radius:8px;"></div>
+  <div style="margin-top:8px;">
+    <button onclick="exportLogs()">📄 ログを保存</button>
+    <button onclick="clearLogs()">🧹 ログクリア</button>
+  </div>
+</div>
 
-<div id="seerModal"><div id="seerContent">
-<h2>占い師専用</h2>
-<label>占う人: <select id="seerTarget"></select></label><br><br>
-<button onclick="showSeerResult('市民陣営')">市民陣営</button>
-<button onclick="showSeerResult('人狼陣営')">人狼陣営</button>
-<p id="seerResult"></p>
-<button onclick="closeSeerModal()">閉じる</button>
-</div></div>
+<!-- role reveal modal -->
+<div id="roleModal" class="modal"><div class="overlay"></div>
+  <div class="modalBox">
+    <div id="rolePlayerName" style="font-size:20px;">—</div>
+    <div class="modal-color-wrap" id="roleColorWrap"><div id="roleReveal">？？？</div></div>
+    <div style="margin-top:12px;">
+      <button id="showRoleBtn" onclick="revealRole()">役職を表示する</button>
+      <button id="rememberBtn" onclick="rememberRole()" style="display:none;">覚えた</button>
+    </div>
+    <div class="small note" style="margin-top:10px;">表示中はプレイヤー設定等は隠れます</div>
+  </div>
+</div>
 
-<div id="mediumModal"><div id="mediumContent">
-<h2>霊媒師専用</h2>
-<label>処刑者: <select id="mediumTarget"></select></label><br><br>
-<button onclick="showMediumResult('市民陣営')">市民陣営</button>
-<button onclick="showMediumResult('人狼陣営')">人狼陣営</button>
-<p id="mediumResult"></p>
-<button onclick="closeMediumModal()">閉じる</button>
-</div></div>
+<!-- seer modal -->
+<div id="seerModal" class="modal"><div class="overlay"></div>
+  <div class="modalBox">
+    <h2>占い師専用</h2>
+    <div class="small">結果を押すとログに記録されます</div>
+    <div style="margin-top:12px;">
+      <button onclick="recordNightActionManual('占い師','市民陣営')">市民陣営</button>
+      <button onclick="recordNightActionManual('占い師','人狼陣営')">人狼陣営</button>
+    </div>
+    <div id="seerResult" class="note" style="margin-top:10px;"></div>
+    <div style="margin-top:12px;"><button onclick="closeSeerModal()">閉じる</button></div>
+  </div>
+</div>
 
-<div id="actionModal"><div id="actionContent">
-<h2>夜の行動一覧</h2>
-<div id="actionList" style="text-align:left; max-height:300px; overflow-y:auto;"></div>
-<button onclick="closeActionModal()">閉じる</button>
-</div></div>
+<!-- medium modal -->
+<div id="mediumModal" class="modal"><div class="overlay"></div>
+  <div class="modalBox">
+    <h2>霊媒師専用</h2>
+    <div class="small">結果を押すとログに記録されます</div>
+    <div style="margin-top:12px;">
+      <button onclick="recordNightActionManual('霊媒師','市民陣営')">市民陣営</button>
+      <button onclick="recordNightActionManual('霊媒師','人狼陣営')">人狼陣営</button>
+    </div>
+    <div id="mediumResult" class="note" style="margin-top:10px;"></div>
+    <div style="margin-top:12px;"><button onclick="closeMediumModal()">閉じる</button></div>
+  </div>
+</div>
 
-<div id="helpModal"><div id="helpContent">
-<h2>使い方</h2>
-<ul style="text-align:left;">
-  <li>役職の名前を登録して保存します。</li>
-  <li>昼夜の時間設定を変更できます。</li>
-  <li>原稿を編集し、読み上げ可能です。</li>
-  <li>占い師・霊媒師専用画面はGMが操作。</li>
-  <li>ログをTXTで保存、テンプレも複数保存可。</li>
-</ul>
-<button onclick="closeHelpModal()">閉じる</button>
-</div></div>
+<!-- wolf panel modal -->
+<div id="wolfModal" class="modal"><div class="overlay"></div>
+  <div class="modalBox light">
+    <h2>人狼パネル（夜用）</h2>
+    <div class="small">同陣営の人狼一覧と襲撃対象を選択できます（GM操作）</div>
+    <div id="wolfList" style="margin-top:10px; text-align:left;"></div>
+    <div style="margin-top:10px;">
+      <label>襲撃対象: <select id="wolf_target_select"></select></label>
+    </div>
+    <div style="margin-top:10px;">
+      <button onclick="recordWolfAction()">襲撃を記録</button>
+      <button onclick="closeWolfModal()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- action modal -->
+<div id="actionModal" class="modal"><div class="overlay"></div>
+  <div class="modalBox">
+    <h2>夜の行動一覧（自動集計）</h2>
+    <div id="actionList" class="small" style="text-align:left; margin-top:10px;"></div>
+    <div style="margin-top:12px;"><button onclick="closeActionModal()">閉じる</button></div>
+  </div>
+</div>
+
+<!-- night action modal -->
+<div id="nightActionModal" class="modal"><div class="overlay"></div>
+  <div class="modalBox">
+    <h2>夜行動入力（GM用）</h2>
+    <div id="dynamicNightInputs" class="small" style="text-align:left; margin-top:10px;"></div>
+    <div style="margin-top:12px;">
+      <button onclick="recordAllNightActions()">記録して自動集計</button>
+      <button onclick="closeNightActionModal()">閉じる</button>
+    </div>
+    <div class="note" style="margin-top:8px;">※共有者は夜の会話はありません（仲間確認のみ）</div>
+  </div>
+</div>
+
+<!-- night general modal -->
+<div id="modal" class="modal"><div class="overlay"></div>
+  <div class="modalBox">
+    <h2>夜の原稿</h2>
+    <div id="modalScript" class="small" style="margin-top:8px;"></div>
+    <div style="margin-top:12px;"><button onclick="closeModal()">閉じる</button></div>
+  </div>
+</div>
+
+<!-- help modal (tabs) -->
+<div id="helpModal" class="modal"><div class="overlay"></div>
+  <div class="modalBox">
+    <h2>使い方 / 役職説明</h2>
+    <div style="margin-top:8px;">
+      <button class="small" onclick="showHelpTab('how')">使い方</button>
+      <button class="small" onclick="showHelpTab('roles')">役職説明</button>
+    </div>
+    <div id="help_how" style="margin-top:12px; text-align:left;">
+      <ul>
+        <li>プレイヤー名を上から順に入力 → 役職数を設定 → 「役職をランダム割り当て（順序固定）」</li>
+        <li>割り当てはプレイヤー順を変えず、役職だけランダムに配ります。</li>
+        <li>「役職確認フェーズ」で仲間確認／目を開ける指示を順に表示します。</li>
+        <li>「プレイヤーに役職を表示」→ 名前のみ表示 → 「役職を表示する」→ 役職（色）→ 「覚えた」で次へ</li>
+        <li>夜行動は「夜行動入力」で選択 → 「記録して自動集計」でログ化（占い師死亡時は弟子が自動昇格）</li>
+        <li>狩人は「同じ人を連続で守れない」ように自動でブロックします。</li>
+        <li>人狼パネルは人狼同士の確認＋襲撃対象選択用です（GM操作）</li>
+      </ul>
+    </div>
+    <div id="help_roles" style="margin-top:12px; display:none; text-align:left;">
+      <table>
+        <tr><th>役職</th><th>陣営</th><th>説明</th></tr>
+        <tr><td>人狼</td><td>人狼陣営</td><td>夜に1人を襲撃します（複数なら相談）。</td></tr>
+        <tr><td>狂信者</td><td>人狼陣営</td><td>人狼を知っている味方（襲撃不可）。</td></tr>
+        <tr><td>狂人</td><td>人狼陣営</td><td>人狼の味方（人狼を知らない場合あり）。</td></tr>
+        <tr><td>占い師</td><td>市民陣営</td><td>夜に1人を占い、市民/人狼の陣営を知る。</td></tr>
+        <tr><td>占い師の弟子</td><td>市民陣営</td><td>占い師が死亡したら自動で昇格します（自動化対応）。</td></tr>
+        <tr><td>霊媒師</td><td>市民陣営</td><td>吊られた人の陣営を知る。</td></tr>
+        <tr><td>狩人</td><td>市民陣営</td><td>夜に1人を守る（同じ人を連続で守ることはできません）。</td></tr>
+        <tr><td>共有者</td><td>市民陣営</td><td>互いに共有者を知る役。夜会話なし（確認のみ）。</td></tr>
+        <tr><td>市民</td><td>市民陣営</td><td>特殊能力なし。</td></tr>
+        <tr><td>恋人</td><td>独立陣営</td><td>2人1組。恋人全員が生存していることが勝利条件。</td></tr>
+      </table>
+    </div>
+    <div style="margin-top:12px;"><button onclick="closeHelpModal()">閉じる</button></div>
+  </div>
+</div>
+
+<!-- role confirm modal -->
+<div id="roleConfirmModal" class="modal"><div class="overlay"></div>
+  <div class="modalBox">
+    <h2 id="confirmTitle">役職確認フェーズ</h2>
+    <div id="confirmMessage" class="small" style="margin-top:12px;"></div>
+    <div style="margin-top:14px;">
+      <button id="confirmNextBtn" onclick="roleConfirmNext()">次へ</button>
+      <button onclick="closeRoleConfirm()">中止</button>
+    </div>
+    <div class="note" style="margin-top:10px;">GMはプレイヤーの目線誘導をお願いします。</div>
+  </div>
+</div>
 
 <script>
-let turns={昼:600,夜:180};
-let players={人狼:'',占い師:'',狂人:'',霊媒師:'',狩人:'',恋人:''};
-let scripts={
-  昼:{default:'皆さんおはようございます。昼が始まりました。'},
-  夜:{
-    default:'皆さん夜が訪れました。伏せてください。',
-    占い:'占い師さん占い師さんおはようございます。占いたい人を1人選んでください。',
-    襲撃:'人狼さん人狼さんおはようございます。殺したい人を1人選んでください。',
-    霊媒:'霊媒師さん霊媒師さんおはようございます。お昼のターンにつられた方の正体を教えます。',
-    狩人:'狩人さん狩人さんおはようございます。守りたい人を1人選んでください。同じ人を連続で選ぶことはできません。'
+/* ---------------------------
+  Keys & state
+----------------------------*/
+const SETTINGS_KEY = 'jinro_settings_autoupgrade_v1';
+const SCRIPT_KEY   = 'jinro_scripts_autoupgrade_v1';
+const NIGHT_KEY    = 'jinro_nightstate_autoupgrade_v1';
+const HUNTER_KEY   = 'jinro_hunter_prev_v1';
+
+let turns = { 昼:600, 夜:180 };
+let currentTurn = '昼';
+let remainingTime = turns[currentTurn];
+let timerInterval = null;
+
+let roles = {};           // {playerName: role}
+let roleOrder = [];       // player list order
+let roleIndex = 0;        // for reveal flow
+let currentPlayer = '';
+let loverPair = [];
+
+let nightLogs = [];
+let nightActions = {};    // aggregated night actions
+let hunterPrev = {};      // { hunterName: previousTarget }
+
+/* ---------------------------
+  Helpers
+----------------------------*/
+function $(id){ return document.getElementById(id); }
+function formatTime(sec){ const m=Math.floor(sec/60), s=sec%60; return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+
+/* ---------------------------
+  Timer
+----------------------------*/
+function startTimer(){ if(timerInterval) return; timerInterval = setInterval(()=>{ if(remainingTime<=0){ clearInterval(timerInterval); timerInterval=null; alert(`${currentTurn}の時間が終了しました`); } else { remainingTime--; $('timer').textContent = formatTime(remainingTime); } },1000); }
+function nextTurn(){ if(timerInterval){ clearInterval(timerInterval); timerInterval=null; } currentTurn = (currentTurn==='昼') ? '夜' : '昼'; remainingTime = (currentTurn==='昼') ? turns.昼 : turns.夜; $('turnText').textContent = currentTurn; $('timer').textContent = formatTime(remainingTime); document.body.style.background = (currentTurn==='昼') ? '#ffffff' : '#0b1220'; document.body.style.color = (currentTurn==='昼') ? '#111' : '#eee'; updateScript(); }
+
+/* ---------------------------
+  Script templates
+----------------------------*/
+function readScriptsFromDOM_inner(){
+  const raw = localStorage.getItem(SCRIPT_KEY);
+  let s = raw ? JSON.parse(raw) : {
+    昼:{default:"皆さんおはようございます。昼が始まりました。"},
+    夜:{ default:"皆さん夜が訪れました。伏せてください。",
+      占い:"占い師さん占い師さんおはようございます。占いたい人を1人選んでください。",
+      襲撃:"人狼さん人狼さんおはようございます。殺したい人を1人選んでください。",
+      霊媒:"霊媒師さん霊媒師さんおはようございます。お昼のターンにつられた方の正体を教えます。",
+      狩人:"狩人さん狩人さんおはようございます。守りたい人を1人選んでください。同じ人を連続で選ぶことはできません。"
+    }
+  };
+  return s;
+}
+function readScriptsFromDOM(){
+  const s = readScriptsFromDOM_inner();
+  const sel = $('actionSelect').value;
+  if(currentTurn==='昼'){ s.昼.default = $('scriptArea').value || s.昼.default; }
+  else {
+    if(sel==='default') s.夜.default = $('scriptArea').value || s.夜.default;
+    else if(sel==='占い') s.夜.占い = $('scriptArea').value || s.夜.占い;
+    else if(sel==='襲撃') s.夜.襲撃 = $('scriptArea').value || s.夜.襲撃;
+    else if(sel==='霊媒') s.夜.霊媒 = $('scriptArea').value || s.夜.霊媒;
+    else if(sel==='狩人') s.夜.狩人 = $('scriptArea').value || s.夜.狩人;
   }
+  return s;
+}
+function saveScript(){ localStorage.setItem(SCRIPT_KEY, JSON.stringify(readScriptsFromDOM())); alert('原稿を保存しました'); }
+function autosaveScript(){ localStorage.setItem(SCRIPT_KEY, JSON.stringify(readScriptsFromDOM())); }
+function loadScriptsToDOM(){ const raw = localStorage.getItem(SCRIPT_KEY); if(!raw) return; try{ const s = JSON.parse(raw); if(currentTurn==='昼'){ $('actionSelect').value='default'; $('scriptArea').value = s.昼?.default || ''; } else { $('actionSelect').value='default'; $('scriptArea').value = s.夜?.default || ''; } }catch(e){} }
+
+/* ---------------------------
+  Settings save/load
+----------------------------*/
+function saveSettings(){
+  const obj = {
+    playerText: $('playerList').value,
+    wolfCount: $('wolfCount').value,
+    numSeer: $('numSeer').value,
+    numApprentice: $('numApprentice').value,
+    numMedium: $('numMedium').value,
+    numHunter: $('numHunter').value,
+    numSharer: $('numSharer').value,
+    numMad: $('numMad').value,
+    numDevotee: $('numDevotee').value,
+    hasLover: $('hasLover').checked,
+    day_time: $('day_time').value,
+    night_time: $('night_time').value
+  };
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(obj));
+  alert('設定を保存しました');
+}
+function loadSettings(){
+  const raw = localStorage.getItem(SETTINGS_KEY);
+  if(!raw) return alert('保存された設定がありません');
+  try{
+    const s = JSON.parse(raw);
+    $('playerList').value = s.playerText || '';
+    $('wolfCount').value = s.wolfCount || 1;
+    $('numSeer').value = s.numSeer || 1;
+    $('numApprentice').value = s.numApprentice || 0;
+    $('numMedium').value = s.numMedium || 1;
+    $('numHunter').value = s.numHunter || 1;
+    $('numSharer').value = s.numSharer || 0;
+    $('numMad').value = s.numMad || 0;
+    $('numDevotee').value = s.numDevotee || 0;
+    $('hasLover').checked = !!s.hasLover;
+    $('day_time').value = s.day_time || 10;
+    $('night_time').value = s.night_time || 3;
+    alert('設定を読み込みました');
+  }catch(e){ alert('読み込み失敗'); }
+}
+
+/* ---------------------------
+  Role assignment — preserve player order, shuffle roles
+----------------------------*/
+function assignRoles(){
+  const players = $('playerList').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(players.length===0){ alert('プレイヤーを入力してください'); return; }
+  // build roles pool according to counts
+  const rolesPool = [];
+  const wolfCount = parseInt($('wolfCount').value)||0;
+  const numSeer = parseInt($('numSeer').value)||0;
+  const numApprentice = parseInt($('numApprentice').value)||0;
+  const numMedium = parseInt($('numMedium').value)||0;
+  const numHunter = parseInt($('numHunter').value)||0;
+  const numSharer = parseInt($('numSharer').value)||0;
+  const numMad = parseInt($('numMad').value)||0;
+  const numDevotee = parseInt($('numDevotee').value)||0;
+  const loverOn = $('hasLover').checked ? 1 : 0;
+  const loverSlots = loverOn ? 2 : 0;
+
+  // push counts
+  for(let i=0;i<wolfCount;i++) rolesPool.push('人狼');
+  for(let i=0;i<numDevotee;i++) rolesPool.push('狂信者');
+  for(let i=0;i<numMad;i++) rolesPool.push('狂人');
+  for(let i=0;i<numSeer;i++) rolesPool.push('占い師');
+  for(let i=0;i<numApprentice;i++) rolesPool.push('占い師の弟子');
+  for(let i=0;i<numMedium;i++) rolesPool.push('霊媒師');
+  for(let i=0;i<numHunter;i++) rolesPool.push('狩人');
+  for(let i=0;i<numSharer;i++) rolesPool.push('共有者');
+  if(loverSlots===2){ rolesPool.push('恋人'); rolesPool.push('恋人'); }
+
+  // fill remaining with 市民
+  while(rolesPool.length < players.length) rolesPool.push('市民');
+
+  // shuffle roles pool
+  shuffle(rolesPool);
+
+  // assign in order of players (players order preserved)
+  roles = {};
+  roleOrder = players.slice(); // maintain order
+  roleIndex = 0;
+  loverPair = [];
+  for(let i=0;i<players.length;i++){
+    const p = players[i];
+    const r = rolesPool[i] || '市民';
+    roles[p] = r;
+  }
+
+  // find lovers if any (first two)
+  const loverPlayers = Object.entries(roles).filter(([p,r])=>r==='恋人').map(([p,r])=>p);
+  if(loverPlayers.length >= 2){
+    loverPair = [loverPlayers[0], loverPlayers[1]];
+  }
+
+  // display GM list
+  $('assignedRoles').innerHTML = Object.entries(roles).map(([p,r])=>`${p}: ${r}`).join('<br>');
+  updateNightSelects();
+  autosaveAll();
+  // ensure hunterPrev loaded
+  loadHunterPrev();
+  // run auto-upgrade check (in case no seer)
+  autoPromoteApprenticeIfNeeded('初期割当時のチェックにより');
+  alert('役職を割り当てました（プレイヤー順は保持されています）');
+}
+
+/* ---------------------------
+  Night selects - generate inputs based on assigned roles
+  Includes disabling previous hunter target options
+----------------------------*/
+function updateNightSelects(){
+  const container = $('dynamicNightInputs');
+  container.innerHTML = '';
+  const players = Object.keys(roles);
+  if(players.length === 0){ container.innerHTML = '<div class="small">役職が割り当てられていません</div>'; return; }
+  function makeSelect(id, disableMap){ 
+    // disableMap: set of values to disable
+    return `<select id="${id}" style="min-width:200px">${players.map(p=>{
+      const dis = disableMap && disableMap.has(p) ? ' disabled class="disabled-option"' : '';
+      return `<option value="${p}" ${dis}>${p}${disableMap && disableMap.has(p) ? ' (前回守られている)' : ''}</option>`;
+    }).join('')}</select>`; 
+  }
+
+  // group by role
+  const byRole = {};
+  for(const p of players){ const r = roles[p]; if(!byRole[r]) byRole[r]=[]; byRole[r].push(p); }
+
+  // seers (占い師 and 占い師の弟子)
+  const seers = (byRole['占い師']||[]).concat(byRole['占い師の弟子']||[]);
+  if(seers.length){
+    container.appendChild(document.createElement('hr'));
+    const h = document.createElement('div'); h.innerHTML = '<strong>占い（占い師 / 占い師の弟子）</strong>'; container.appendChild(h);
+    seers.forEach((actor,i)=>{
+      const div = document.createElement('div'); div.style.marginTop='8px';
+      div.innerHTML = `<label class="small">${actor} が占った人: ${makeSelect(`seer_target_${i}`)}</label>`;
+      container.appendChild(div);
+    });
+  }
+
+  // wolves
+  const wolves = byRole['人狼'] || [];
+  if(wolves.length){
+    container.appendChild(document.createElement('hr'));
+    const h = document.createElement('div'); h.innerHTML = `<strong>人狼（${wolves.join(', ')}）</strong>`; container.appendChild(h);
+    const div = document.createElement('div'); div.style.marginTop='8px';
+    div.innerHTML = `<label class="small">人狼が襲撃した人: ${makeSelect('wolf_target', new Set(wolves))}</label>`;
+    container.appendChild(div);
+  }
+
+  // hunters - disable options equal to previous target for that hunter
+  const hunters = byRole['狩人'] || [];
+  if(hunters.length){
+    container.appendChild(document.createElement('hr'));
+    const h = document.createElement('div'); h.innerHTML = '<strong>狩人（守り）</strong>'; container.appendChild(h);
+    hunters.forEach((actor,i)=>{
+      const prev = hunterPrev[actor]; // may be undefined
+      const disableMap = prev ? new Set([prev]) : null;
+      const div = document.createElement('div'); div.style.marginTop='8px';
+      div.innerHTML = `<label class="small">${actor} が守った人: ${makeSelect(`hunter_target_${i}`, disableMap)}</label>` + (prev ? `<div class="small" style="color:#a00">※前回は ${prev} を守りました。連続で守ることはできません。</div>` : '');
+      container.appendChild(div);
+      // add onchange validator in case disabled option is somehow selected
+      setTimeout(()=>{ const sel = $(`hunter_target_${i}`); if(sel) sel.addEventListener('change', ()=>{ if(prev && sel.value === prev){ alert('同じ人を連続で守ることはできません。別の人を選んでください。'); sel.value = ''; } }); }, 50);
+    });
+  }
+}
+
+/* ---------------------------
+  Night aggregator
+  Also handles auto-promotion after deaths
+----------------------------*/
+function recordAllNightActions(){
+  const ts = new Date().toLocaleString();
+  // gather seer targets
+  const seerTargets = []; let i=0;
+  while($(`seer_target_${i}`)){ seerTargets.push($(`seer_target_${i}`).value); i++; }
+
+  const wolfTarget = $('wolf_target') ? $('wolf_target').value : null;
+  const hunterTargets = []; let j=0;
+  while($(`hunter_target_${j}`)){ hunterTargets.push($(`hunter_target_${j}`).value); j++; }
+
+  nightActions = { 占い師: [], 人狼:{target: wolfTarget}, 狩人: [], killed: null, 霊媒師: null };
+
+  // seer results
+  seerTargets.forEach(t=>{
+    const roleOf = roles[t] || '市民';
+    const result = (roleOf === '人狼') ? '人狼陣営' : '市民陣営';
+    nightActions.占い師.push({ target:t, result });
+    nightLogs.push(`${ts} - 占い: ${t} → ${result}`);
+  });
+
+  // hunter protections
+  const hunterNames = Object.keys(roles).filter(p => roles[p] === '狩人');
+  let k=0;
+  hunterNames.forEach(hName => {
+    const target = hunterTargets[k] || null;
+    if(target){
+      // check consecutive - if equals prev, ignore and warn (should have been blocked)
+      if(hunterPrev[hName] && hunterPrev[hName] === target){
+        nightLogs.push(`${ts} - 狩人 ${hName} が ${target} を連続で守ろうとしましたがルールで無効化されました`);
+      } else {
+        nightActions.狩人.push({ actor:hName, target });
+        nightLogs.push(`${ts} - 狩人 ${hName} が守った: ${target}`);
+        // update previous
+        hunterPrev[hName] = target;
+      }
+    }
+    k++;
+  });
+
+  // compute kill
+  let killed = null;
+  if(wolfTarget){
+    // if any hunter protected the wolfTarget (any hunter's successful protect)
+    const protectedTargets = (nightActions.狩人 || []).map(x=>x.target);
+    if(protectedTargets.includes(wolfTarget)){
+      killed = null;
+      nightLogs.push(`${ts} - 人狼は ${wolfTarget} を襲撃しましたが狩人に守られました`);
+    } else {
+      killed = wolfTarget;
+      nightLogs.push(`${ts} - 人狼襲撃: ${wolfTarget}`);
+      const kr = roles[killed] || '市民';
+      const med = (kr === '人狼') ? '人狼陣営' : '市民陣営';
+      nightActions.霊媒師 = { target:killed, result:med };
+      nightLogs.push(`${ts} - 霊媒: ${killed} → ${med}`);
+      // mark death in roles for further processing (we won't remove from roles but record)
+    }
+  } else {
+    nightActions.霊媒師 = { target:null, result:'なし' };
+  }
+
+  nightActions.killed = killed;
+
+  // save hunter prev
+  localStorage.setItem(HUNTER_KEY, JSON.stringify(hunterPrev || {}));
+
+  updateLogDisplay();
+  saveNightStateToStorage();
+  closeNightActionModal();
+  // After recording night results, run auto promotion for apprentice if seer dead
+  autoPromoteApprenticeIfNeeded('夜の集計後');
+  alert('夜行動を記録し、自動集計しました（ログに追加）');
+}
+
+/* manual seer/medium recording */
+function recordNightActionManual(role, forcedResult){
+  const ts = new Date().toLocaleString();
+  if(role === '占い師'){
+    nightActions.占い師 = nightActions.占い師 || [];
+    nightActions.占い師.push({ target:'(手動)', result:forcedResult });
+    nightLogs.push(`${ts} - 占い（手動） → ${forcedResult}`);
+    $('seerResult').innerText = forcedResult;
+  } else if(role === '霊媒師'){
+    nightActions.霊媒師 = { target:'(手動)', result:forcedResult };
+    nightLogs.push(`${ts} - 霊媒（手動） → ${forcedResult}`);
+    $('mediumResult').innerText = forcedResult;
+  }
+  updateLogDisplay();
+  saveNightStateToStorage();
+}
+
+/* ---------------------------
+  Auto-promote apprentice when no active seer exists
+  Called after assignments, after night resolution, on load
+----------------------------*/
+function autoPromoteApprenticeIfNeeded(reason){
+  // If there's at least one '占い師' present, do nothing.
+  const players = Object.keys(roles);
+  const hasSeer = players.some(p => roles[p] === '占い師');
+  if(hasSeer) return;
+  // find a 占い師の弟子
+  const apprentice = players.find(p => roles[p] === '占い師の弟子');
+  if(apprentice){
+    roles[apprentice] = '占い師';
+    const ts = new Date().toLocaleString();
+    nightLogs.push(`${ts} - 自動昇格: ${apprentice} が 占い師の弟子から占い師に昇格しました（${reason}）`);
+    // update display
+    $('assignedRoles').innerHTML = Object.entries(roles).map(([p,r])=>`${p}: ${r}`).join('<br>');
+    updateNightSelects();
+    updateLogDisplay();
+    saveNightStateToStorage();
+    autosaveAll();
+    alert(`${apprentice} が占い師に自動昇格しました（${reason}）`);
+  }
+}
+
+/* ---------------------------
+  Logs
+----------------------------*/
+function updateLogDisplay(){ $('logArea').innerHTML = nightLogs.map(l=>`<div>${l}</div>`).join(''); }
+function exportLogs(){ const blob = new Blob([nightLogs.join('\n')], {type:'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); const now = new Date(); a.download = `jinro_log_${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}_${now.getHours()}${now.getMinutes()}.txt`; a.click(); }
+function clearLogs(){ if(confirm('夜ログをクリアしますか？')){ nightLogs = []; nightActions = {}; updateLogDisplay(); localStorage.removeItem(NIGHT_KEY); } }
+
+/* ---------------------------
+  Role reveal flow (2-step)
+----------------------------*/
+const roleColorClass = {
+  '人狼':'color-wolf','市民':'color-citizen','占い師':'color-seer','霊媒師':'color-medium','狂人':'color-mad',
+  '狩人':'color-hunter','恋人':'color-lover','共有者':'color-sharer','占い師の弟子':'color-apprentice','狂信者':'color-devotee'
+};
+function showNextRole(){ hideMainUI(true); nextRole(); }
+function nextRole(){
+  if(roleIndex >= roleOrder.length){ alert('全員の役職表示が完了しました'); roleIndex = 0; hideMainUI(false); return; }
+  currentPlayer = roleOrder[roleIndex++];
+  $('rolePlayerName').innerText = `${currentPlayer}さん、あなたは…`;
+  $('roleReveal').innerText = '？？？'; $('roleReveal').style.opacity = 0; setModalColor(null);
+  $('showRoleBtn').style.display = 'inline-block'; $('rememberBtn').style.display = 'none';
+  $('roleModal').style.display = 'flex';
+}
+function revealRole(){
+  const role = roles[currentPlayer] || '不明';
+  setModalColor(role);
+  const el = $('roleReveal');
+  el.innerText = role;
+  setTimeout(()=>{ el.style.opacity = 1; el.style.transform = 'translateY(0)'; }, 80);
+  $('showRoleBtn').style.display = 'none';
+  $('rememberBtn').style.display = 'inline-block';
+  applyBackgroundForRole(role);
+}
+function rememberRole(){ $('roleModal').style.display = 'none'; restoreDefaultBackground(); setTimeout(nextRole, 220); }
+function setModalColor(role){ const wrap = $('roleColorWrap'); wrap.className = 'modal-color-wrap'; if(!role) return; const base = role.replace('（恋人）',''); const cls = roleColorClass[base] || ''; if(cls) wrap.classList.add(cls); }
+function applyBackgroundForRole(role){ const base = role ? role.replace('（恋人）','') : ''; const map = { '人狼':'linear-gradient(180deg,#3a0000,#7f0f0f)', '市民':'linear-gradient(180deg,#0b3b66,#2f7bd3)', '占い師':'linear-gradient(180deg,#3b66a8,#7b9ee0)', '占い師の弟子':'linear-gradient(180deg,#6b3ba7,#9b76d9)', '霊媒師':'linear-gradient(180deg,#ffffff,#f5f5f5)', '狩人':'linear-gradient(180deg,#0b7a3e,#2fb06a)', '狂人':'linear-gradient(180deg,#8b3a8b,#c977c9)', '狂信者':'linear-gradient(180deg,#3b0000,#6b0010)', '共有者':'linear-gradient(180deg,#2bb7d6,#7fdaf0)', '恋人':'linear-gradient(180deg,#ff6ea7,#ff9ac1)' }; const bg = map[base] || '#ffffff'; document.body.style.background = bg; document.body.style.color = (base === '霊媒師' || base === '恋人') ? '#111' : '#fff'; }
+function restoreDefaultBackground(){ document.body.style.background = ''; document.body.style.color = ''; }
+function hideMainUI(h){ const ids = ['player-settings','timer-settings','logContainer','actionSelect','scriptArea']; ids.forEach(id => { const el = $(id); if(!el) return; el.style.display = h ? 'none' : 'block'; }); }
+
+/* ---------------------------
+  Night action modal helpers
+----------------------------*/
+function showNightActionModal(){ updateNightSelects(); $('nightActionModal').style.display = 'flex'; hideMainUI(true); }
+function closeNightActionModal(){ $('nightActionModal').style.display = 'none'; hideMainUI(false); }
+
+/* ---------------------------
+  Seer/Medium modal open/close helpers
+----------------------------*/
+function showSeerModal(){ $('seerResult').innerText=''; $('seerModal').style.display = 'flex'; hideMainUI(true); }
+function closeSeerModal(){ $('seerModal').style.display = 'none'; hideMainUI(false); }
+function showMediumModal(){ $('mediumResult').innerText=''; $('mediumModal').style.display = 'flex'; hideMainUI(true); }
+function closeMediumModal(){ $('mediumModal').style.display = 'none'; hideMainUI(false); }
+
+/* ---------------------------
+  Action modal helpers
+----------------------------*/
+function showActionModal(){ $('actionList').innerHTML = buildActionListHTML(); $('actionModal').style.display = 'flex'; }
+function closeActionModal(){ $('actionModal').style.display = 'none'; }
+function buildActionListHTML(){
+  const lines = [];
+  if(nightActions.占い師 && nightActions.占い師.length) nightActions.占い師.forEach((e,i)=> lines.push(`占い${i+1}: ${e.target||'なし'} → ${e.result||'-'}`));
+  if(nightActions.人狼) lines.push(`人狼: ${nightActions.人狼.target||'なし'}`);
+  if(nightActions.狩人 && nightActions.狩人.length) nightActions.狩人.forEach((h,i)=> lines.push(`狩人 ${h.actor}: ${h.target||'なし'}`));
+  if('killed' in nightActions) lines.push(`襲撃結果: ${nightActions.killed || 'なし'}`);
+  if(nightActions.霊媒師) lines.push(`霊媒: ${nightActions.霊媒師.target || 'なし'} → ${nightActions.霊媒師.result || '-'}`);
+  return lines.join('<br>');
+}
+
+/* ---------------------------
+  Night state save/load
+----------------------------*/
+function saveNightStateToStorage(){ localStorage.setItem(NIGHT_KEY, JSON.stringify({ nightLogs, nightActions, ts:Date.now() })); }
+function loadNightStateFromStorage(){ const raw = localStorage.getItem(NIGHT_KEY); if(!raw) return; try{ const o = JSON.parse(raw); nightLogs = o.nightLogs || []; nightActions = o.nightActions || {}; updateLogDisplay(); }catch(e){} }
+function loadHunterPrev(){ try{ const raw = localStorage.getItem(HUNTER_KEY); hunterPrev = raw ? JSON.parse(raw) : {}; }catch(e){ hunterPrev = {}; } }
+
+/* ---------------------------
+  Templates
+----------------------------*/
+const TEMPLATE_KEY = 'jinro_templates_autoupgrade_v1';
+function saveTemplate(){ const name = prompt('テンプレート名を入力してください（例：標準A）'); if(!name) return; const s = readScriptsFromDOM(); const t = JSON.parse(localStorage.getItem(TEMPLATE_KEY) || '{}'); t[name] = s; localStorage.setItem(TEMPLATE_KEY, JSON.stringify(t)); alert(`テンプレート「${name}」を保存しました`); }
+function loadTemplate(){ const t = JSON.parse(localStorage.getItem(TEMPLATE_KEY) || '{}'); const keys = Object.keys(t); if(keys.length === 0) return alert('保存されたテンプレートがありません'); const name = prompt(`読み込むテンプレート名を入力してください\n利用可能: ${keys.join(', ')}`); if(!name || !t[name]) return alert('指定テンプレートが存在しません'); localStorage.setItem(SCRIPT_KEY, JSON.stringify(t[name])); updateScript(); alert(`テンプレート「${name}」を読み込みました`); }
+
+/* ---------------------------
+  Autosave
+----------------------------*/
+function autosaveAll(){ saveSettings(); autosaveScript(); saveNightStateToStorage(); localStorage.setItem(HUNTER_KEY, JSON.stringify(hunterPrev || {})); }
+
+/* ---------------------------
+  Script helpers
+----------------------------*/
+function updateScript(){
+  const raw = localStorage.getItem(SCRIPT_KEY);
+  let s = raw ? JSON.parse(raw) : null;
+  const sel = $('actionSelect').value;
+  if(currentTurn === '昼'){
+    $('scriptArea').value = s?.昼?.default || "皆さんおはようございます。昼が始まりました。";
+  } else {
+    if(!s){
+      const built = {
+        default: "皆さん夜が訪れました。伏せてください。",
+        占い: "占い師さん占い師さんおはようございます。占いたい人を1人選んでください。",
+        襲撃: "人狼さん人狼さんおはようございます。殺したい人を1人選んでください。",
+        霊媒: "霊媒師さん霊媒師さんおはようございます。お昼のターンにつられた方の正体を教えます。",
+        狩人: "狩人さん狩人さんおはようございます。守りたい人を1人選んでください。同じ人を連続で選ぶことはできません。"
+      };
+      $('scriptArea').value = built[sel] || built.default;
+    } else {
+      if(sel === 'default') $('scriptArea').value = s.夜?.default || '';
+      else if(sel === '占い') $('scriptArea').value = s.夜?.占い || '';
+      else if(sel === '襲撃') $('scriptArea').value = s.夜?.襲撃 || '';
+      else if(sel === '霊媒') $('scriptArea').value = s.夜?.霊媒 || '';
+      else if(sel === '狩人') $('scriptArea').value = s.夜?.狩人 || '';
+    }
+  }
+}
+
+/* ---------------------------
+  Help modal open/close/tab
+----------------------------*/
+function openHelpModal(){ showHelpTab('how'); $('helpModal').style.display = 'flex'; hideMainUI(true); }
+function closeHelpModal(){ $('helpModal').style.display = 'none'; hideMainUI(false); }
+function showHelpTab(tab){ const how = $('help_how'), roles = $('help_roles'); if(tab === 'how'){ how.style.display = 'block'; roles.style.display = 'none'; } else { how.style.display = 'none'; roles.style.display = 'block'; } }
+
+/* ---------------------------
+  Wolf panel
+----------------------------*/
+function showWolfPanel(){
+  const wolves = Object.entries(roles).filter(([p,r])=> r==='人狼').map(([p,r])=>p);
+  if(wolves.length === 0) { alert('割り当てられた人狼がいません'); return; }
+  $('wolfList').innerHTML = `<div class="small">人狼: ${wolves.join(', ')}</div>`;
+  // populate target select
+  const sel = $('wolf_target_select'); sel.innerHTML = '';
+  const players = Object.keys(roles);
+  players.forEach(p => { if(!wolves.includes(p)) sel.innerHTML += `<option value="${p}">${p}</option>`; });
+  $('wolfModal').style.display = 'flex';
+  hideMainUI(true);
+}
+function closeWolfModal(){ $('wolfModal').style.display = 'none'; hideMainUI(false); }
+function recordWolfAction(){
+  const target = $('wolf_target_select').value;
+  if(!target){ alert('襲撃対象を選んでください'); return; }
+  const ts = new Date().toLocaleString();
+  nightActions.人狼 = { target };
+  nightLogs.push(`${ts} - 人狼襲撃（人狼パネル）: ${target}`);
+  updateLogDisplay();
+  saveNightStateToStorage();
+  alert('人狼の襲撃を記録しました（ログへ）');
+}
+
+/* ---------------------------
+  Role-confirm phase
+----------------------------*/
+let roleConfirmQueue = []; let roleConfirmIndex = 0;
+function startRoleConfirm(){
+  const counts = {}; for(const p in roles){ const r = roles[p]; counts[r] = (counts[r]||0) + 1; }
+  roleConfirmQueue = [];
+  // peer roles requiring face-to-face if >=2 (exclude 市民)
+  const peerRoles = ['人狼','共有者','恋人','狂信者','狂人'];
+  peerRoles.forEach(r => { if((counts[r]||0) >= 2) roleConfirmQueue.push({ title:`${r}の方へ`, msg:`${r}の方は顔を合わせて仲間を確認してください` }); });
+  // singleton roles that need "目を開けて"
+  const singleRoles = ['占い師','占い師の弟子','霊媒師','狩人'];
+  singleRoles.forEach(r => { if((counts[r]||0) >= 1) roleConfirmQueue.push({ title:`${r}の方へ`, msg:`${r}の方は目を開けてください（確認後は目を閉じてください）` }); });
+
+  if(roleConfirmQueue.length === 0){ alert('確認が必要な役職がありません'); return; }
+  roleConfirmIndex = 0;
+  $('confirmTitle').innerText = '役職確認フェーズ';
+  $('roleConfirmModal').style.display = 'flex';
+  showRoleConfirmCurrent();
+}
+function showRoleConfirmCurrent(){
+  if(roleConfirmIndex >= roleConfirmQueue.length){ closeRoleConfirm(); alert('役職確認フェーズが終了しました'); return; }
+  const cur = roleConfirmQueue[roleConfirmIndex];
+  $('confirmMessage').innerText = cur.msg;
+  $('confirmNextBtn').innerText = (roleConfirmIndex === roleConfirmQueue.length - 1) ? '完了' : '次へ';
+}
+function roleConfirmNext(){ roleConfirmIndex++; if(roleConfirmIndex >= roleConfirmQueue.length){ closeRoleConfirm(); alert('役職確認フェーズが終了しました'); return; } showRoleConfirmCurrent(); }
+function closeRoleConfirm(){ $('roleConfirmModal').style.display = 'none'; }
+
+/* ---------------------------
+  Save/load night state & init
+----------------------------*/
+window.onload = function(){
+  // load settings if exist
+  const rawSet = localStorage.getItem(SETTINGS_KEY);
+  if(rawSet){
+    try{
+      const s = JSON.parse(rawSet);
+      if(s.playerText) $('playerList').value = s.playerText;
+      if(s.wolfCount) $('wolfCount').value = s.wolfCount;
+      if(s.numSeer) $('numSeer').value = s.numSeer;
+      if(s.numApprentice) $('numApprentice').value = s.numApprentice;
+      if(s.numMedium) $('numMedium').value = s.numMedium;
+      if(s.numHunter) $('numHunter').value = s.numHunter;
+      if(s.numSharer) $('numSharer').value = s.numSharer;
+      if(s.numMad) $('numMad').value = s.numMad;
+      if(s.numDevotee) $('numDevotee').value = s.numDevotee;
+      $('hasLover').checked = !!s.hasLover;
+      if(s.day_time) $('day_time').value = s.day_time;
+      if(s.night_time) $('night_time').value = s.night_time;
+    }catch(e){}
+  }
+  loadScriptsToDOM();
+  loadNightStateFromStorage();
+  loadHunterPrev();
+  // if roles persisted? (not persist currently) - still run autoPromote just in case
+  autoPromoteApprenticeIfNeeded('ページロード時チェック');
+  $('timer').textContent = formatTime(remainingTime);
+  updateScript();
+  updateNightSelects();
 };
 
-let currentTurn='昼', remainingTime=turns[currentTurn], timerInterval=null;
-let nightLogs=[], nightActions={};
+/* ensure seer/medium close works */
+function closeSeerModal(){ $('seerModal').style.display = 'none'; hideMainUI(false); }
+function closeMediumModal(){ $('mediumModal').style.display = 'none'; hideMainUI(false); }
 
-function formatTime(sec){let m=Math.floor(sec/60),s=sec%60;return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;}
-function startTimer(){if(timerInterval)return;timerInterval=setInterval(()=>{if(remainingTime<=0){clearInterval(timerInterval);timerInterval=null;alert(`${currentTurn}の時間が終了しました！`);}else{remainingTime--;document.getElementById('timer').textContent=formatTime(remainingTime);}},1000);}
-function nextTurn(){if(timerInterval){clearInterval(timerInterval);timerInterval=null;}currentTurn=(currentTurn==='昼')?'夜':'昼';remainingTime=turns[currentTurn];document.getElementById('turnLabel').textContent=`現在のターン: ${currentTurn}`;document.getElementById('timer').textContent=formatTime(remainingTime);document.body.style.backgroundColor=(currentTurn==='昼')?'#fff':'#111';document.body.style.color=(currentTurn==='昼')?'#000':'#eee';updateScript();}
+/* Save timer settings */
+function saveTimerSettings(){ turns.昼 = (parseInt($('day_time').value)||10)*60; turns.夜 = (parseInt($('night_time').value)||3)*60; saveSettings(); alert('タイマー設定を保存しました'); }
 
-function updatePlayerNames(){for(let k in players){players[k]=document.getElementById(`player_${roleToId(k)}`).value||k;}updateScript();alert('保存しました！');}
-function roleToId(r){return {'人狼':'wolf','占い師':'seer','狂人':'mad','霊媒師':'medium','狩人':'hunter','恋人':'lover'}[r];}
-
-function updateScript(){let a=document.getElementById('actionSelect').value;if(currentTurn==='昼')a='default';document.getElementById('scriptArea').value=scripts[currentTurn][a];}
-function saveScript(){let a=document.getElementById('actionSelect').value;if(currentTurn==='昼')a='default';scripts[currentTurn][a]=document.getElementById('scriptArea').value;alert('原稿を保存しました！');}
-function saveTimerSettings(){turns['昼']=parseInt(document.getElementById('day_time').value)*60;turns['夜']=parseInt(document.getElementById('night_time').value)*60;alert('時間を保存しました！');}
-
-// モーダルなどの処理は前回版と同じ
-function showNightModal(){document.getElementById('modalScript').innerText=scripts['夜']['default'];document.getElementById('modal').style.display='flex';}
-function closeModal(){document.getElementById('modal').style.display='none';}
-
-function showSeerModal(){hideMainUI(true);const s=document.getElementById('seerTarget');s.innerHTML='';for(let p in players){if(p!=='占い師'){s.innerHTML+=`<option value="${p}">${players[p]}</option>`;}}document.getElementById('seerResult').innerText='';document.getElementById('seerModal').style.display='flex';}
-function closeSeerModal(){document.getElementById('seerModal').style.display='none';hideMainUI(false);}
-
-function showMediumModal(){hideMainUI(true);const s=document.getElementById('mediumTarget');s.innerHTML='';for(let p in players){s.innerHTML+=`<option value="${p}">${players[p]}</option>`;}document.getElementById('mediumResult').innerText='';document.getElementById('mediumModal').style.display='flex';}
-function closeMediumModal(){document.getElementById('mediumModal').style.display='none';hideMainUI(false);}
-
-function showSeerResult(f){const p=document.getElementById('seerTarget').value;document.getElementById('seerResult').innerText=`${players[p]}: ${f}`;nightLogs.push(`占い師が${players[p]}を占った → ${f}`);nightActions['占い師']=`占い師: ${players[p]} → ${f}`;updateLogDisplay();}
-function showMediumResult(f){const p=document.getElementById('mediumTarget').value;document.getElementById('mediumResult').innerText=`${players[p]}: ${f}`;nightLogs.push(`霊媒師が${players[p]}を確認 → ${f}`);nightActions['霊媒師']=`霊媒師: ${players[p]} → ${f}`;updateLogDisplay();}
-
-function showActionModal(){const d=document.getElementById('actionList');d.innerHTML=Object.values(nightActions).join('<br>')||'まだ行動がありません';document.getElementById('actionModal').style.display='flex';}
-function closeActionModal(){document.getElementById('actionModal').style.display='none';}
-function showHelpModal(){document.getElementById('helpModal').style.display='flex';}
-function closeHelpModal(){document.getElementById('helpModal').style.display='none';}
-
-function hideMainUI(h){document.getElementById('player-settings').style.display=h?'none':'block';document.getElementById('timer-settings').style.display=h?'none':'block';document.getElementById('logContainer').style.display=h?'none':'block';document.getElementById('actionSelect').style.display=h?'none':'inline-block';document.getElementById('scriptArea').style.display=h?'none':'inline-block';}
-
-function updateLogDisplay(){document.getElementById('logArea').innerHTML=nightLogs.join('<br>');}
-function exportLogs(){const logText=nightLogs.join("\n")||"まだ記録がありません。";const blob=new Blob([logText],{type:"text/plain"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;const now=new Date();const ts=`${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}_${now.getHours()}-${now.getMinutes()}`;a.download=`jinro_log_${ts}.txt`;a.click();URL.revokeObjectURL(url);}
-
-window.onload=function(){updateScript();document.getElementById('timer').textContent=formatTime(remainingTime);document.body.style.backgroundColor='#fff';};
 </script>
 </body>
 </html>
